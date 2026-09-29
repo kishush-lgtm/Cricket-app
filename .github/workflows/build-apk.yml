@@ -1,0 +1,62 @@
+name: Build Cric Warriors APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Find and extract Cric Warriors project
+        run: |
+          mkdir -p project
+          ZIP_FILE=$(find . -maxdepth 1 -type f -name "*.zip" | head -n 1)
+
+          if [ -z "$ZIP_FILE" ]; then
+            echo "No project ZIP found"
+            exit 1
+          fi
+
+          echo "Using: $ZIP_FILE"
+          unzip -q "$ZIP_FILE" -d project
+
+      - name: Find Gradle project
+        run: |
+          GRADLEW=$(find project -type f -name "gradlew" | head -n 1)
+
+          if [ -z "$GRADLEW" ]; then
+            echo "gradlew not found"
+            find project -maxdepth 3 -type f | head -100
+            exit 1
+          fi
+
+          echo "Gradle wrapper: $GRADLEW"
+          chmod +x "$GRADLEW"
+
+      - name: Build Debug APK
+        run: |
+          GRADLEW=$(find project -type f -name "gradlew" | head -n 1)
+          PROJECT_DIR=$(dirname "$GRADLEW")
+          cd "$PROJECT_DIR"
+          chmod +x gradlew
+          ./gradlew :app:assembleDebug --stacktrace
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: Cric-Warriors-APK
+          path: project/**/app/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
